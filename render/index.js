@@ -87,7 +87,7 @@ function patchData(el, preData, nextData) {
       switch (key) {
         case 'style': {
           for (let s in preData.style) {
-            if (preData.style[s] && (!nextData.style || nextData.style[s])) {
+            if (preData.style[s] && (!nextData.style || !nextData.style[s])) {
               el.style[s] = ''
             }
           }
