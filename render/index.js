@@ -39,25 +39,21 @@ function mount(vnode, container) {
   } 
 }
 
-function mountElement(vnode, container) {
-  const { tag, type, data, children, childType } = vnode
-  const el = type & VNODE_TYPES.ELEMENT_SVG ?
-    document.createElementNS('http://www.w3.org/2000/svg', tag) :
-    document.createElement(tag)
-  vnode.el = el
-  if (data) {
-    for(let key in data) {
+function patchData(el, preData, nextData) {
+  if (nextData) {
+    for(let key in nextData) {
       switch (key) {
         case 'style': {
-          for (let s in data.style) {
-            el.style[s] = data.style[s]
+          for (let s in nextData.style) {
+            el.style[s] = nextData.style[s]
           }
           break
         }
         case 'class': {
+          // 因为className会覆盖原来的所以不用处理pre
           // https://codesandbox.io/s/397w7kxy1
           const classes = []
-          data.class.forEach(c => {
+          nextData.class.forEach(c => {
             if (typeof c === 'string') {
               classes.push(c.split(/s+/))
             } else if (Array.isArray(c)) {
@@ -75,16 +71,51 @@ function mountElement(vnode, container) {
         }
         default: {
           if (/^(value|checked|selected|muted)$/i.test(key)) {
-            el[key] = data[key]
+            // 这个也是唯一所以不用处理predata
+            el[key] = nextData[key]
           } else if (/^on/i.test(key)) {
-            el.addEventListener(key.substr(2), data[key])
+            el.addEventListener(key.substr(2), nextData[key])
           } else {
-            el.setAttribute(key, data[key])
+            el.setAttribute(key, nextData[key])
           }
         }
       }
     }
   }
+  if (preData) {
+    for (let key in preData) {
+      switch (key) {
+        case 'style': {
+          for (let s in preData.style) {
+            if (preData.style[s] && (!nextData.style || nextData.style[s])) {
+              el.style[s] = ''
+            }
+          }
+          break
+        }
+        default: {
+          if (/^on/i.test(key)) {
+            if(preData[key] && (!nextData[key] || preData[key] !== nextData[key])) {
+              el.removeEventListener(key.substr(2), preData[key])
+            }
+          } else if (!/^(value|checked|selected|muted)$/i.test(key)) {
+            if (preData[key] && !nextData[key]) {
+              el.removeAttribute(key)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function mountElement(vnode, container) {
+  const { tag, type, data, children, childType } = vnode
+  const el = type & VNODE_TYPES.ELEMENT_SVG ?
+    document.createElementNS('http://www.w3.org/2000/svg', tag) :
+    document.createElement(tag)
+  vnode.el = el
+  patchData(vnode.el, null, data)
   if (childType & CHILD_TYPES.SINGLE_VNODE) {
     mount(children, el)
   } else if (childType & CHILD_TYPES.MULTIPLE_VNODES) {
@@ -144,7 +175,7 @@ function mountPortal(vnode, container) {
   mountComment(cvnode, container)
 }
 
-function mountComponent(vnode, container, isSVG) {
+function mountComponent(vnode, container) {
   if (vnode.type & VNODE_TYPES.COMPONENT_STATEFUL) {
     mountStatefulComponent(vnode, container)
   } else {

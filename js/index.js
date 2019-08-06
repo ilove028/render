@@ -1,7 +1,7 @@
 render(
   createVnode(
     'h1',
-    { style: { color: 'red', background: 'blue' } },
+    { style: { color: 'red', background: 'blue' }, onclick() { console.info('pre') } },
     [
       createVnode(
         Symbol.for('fragment'),
@@ -52,3 +52,17 @@ render(
   ),
   document.getElementById('app')
 )
+
+setTimeout(() => {
+  render(
+    createVnode(
+      'h1',
+      {
+        class: ['green'],
+        onclick() { console.info('next') }
+      },
+      'empty'
+    ),
+    document.getElementById('app')
+  )
+}, 5000)
